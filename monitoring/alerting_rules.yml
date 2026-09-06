@@ -1,0 +1,38 @@
+groups:
+  - name: muhawir_alerts
+    rules:
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum(rate(muhawir_latency_seconds_bucket[5m])) by (le)) > 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 95th percentile latency is above 10 seconds"
+          description: "Muḥāwir API p95 response time has exceeded 10 seconds for more than 5 minutes."
+
+      - alert: HighErrorRate
+        expr: (sum(rate(muhawir_requests_total{status="error"}[5m])) / sum(rate(muhawir_requests_total[5m]))) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API error rate exceeds 5%"
+          description: "More than 5% of API requests resulted in errors over the last 5 minutes."
+
+      - alert: VLLMMemory
+        expr: vllm:gpu_cache_usage_factor > 0.95
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "vLLM GPU memory utilization above 95%"
+          description: "vLLM KV cache / GPU memory usage is critical, consider increasing swap space or pruning requests."
+
+      - alert: QdrantDown
+        expr: up{job="qdrant"} == 0
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: "Qdrant vector database is unreachable"
+          description: "Prometheus cannot scrape Qdrant endpoint on port 6333."

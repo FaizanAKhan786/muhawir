@@ -1,0 +1,106 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Request Rate (QPS)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(muhawir_requests_total[1m])) by (endpoint)",
+          "legendFormat": "{{endpoint}}"
+        }
+      ]
+    },
+    {
+      "title": "Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(muhawir_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(muhawir_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(muhawir_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "100 * (sum(rate(muhawir_requests_total{status='error'}[5m])) / sum(rate(muhawir_requests_total[5m])))",
+          "legendFormat": "Error %"
+        }
+      ]
+    },
+    {
+      "title": "Active Requests & Agent Retries",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(muhawir_agent_retries_total[5m]))",
+          "legendFormat": "Quality Gate Retries / min"
+        }
+      ]
+    },
+    {
+      "title": "vLLM GPU Utilization (%)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 8 },
+      "targets": [
+        {
+          "expr": "vllm:gpu_cache_usage_factor * 100",
+          "legendFormat": "GPU KV Cache %"
+        }
+      ]
+    },
+    {
+      "title": "Qdrant Search Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "avg(qdrant_search_latency_ms)",
+          "legendFormat": "Latency ms"
+        }
+      ]
+    },
+    {
+      "title": "Redis Semantic Cache Hit Rate (%)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        {
+          "expr": "100 * (sum(rate(muhawir_cache_hits_total[5m])) / (sum(rate(muhawir_cache_hits_total[5m])) + sum(rate(muhawir_cache_misses_total[5m]))))",
+          "legendFormat": "Hit Rate %"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["muhawir", "production", "health"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Muḥāwir - System Health",
+  "uid": "muhawir-system-health",
+  "version": 1
+}

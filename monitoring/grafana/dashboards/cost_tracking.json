@@ -1,0 +1,69 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Tokens / Hour (Prompt vs Completion)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(vllm:prompt_tokens_total[1h]))",
+          "legendFormat": "Prompt Tokens / hr"
+        },
+        {
+          "expr": "sum(rate(vllm:generation_tokens_total[1h]))",
+          "legendFormat": "Generation Tokens / hr"
+        }
+      ]
+    },
+    {
+      "title": "Estimated Cost / Request ($)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "(rate(vllm:prompt_tokens_total[5m]) * 0.0000005) + (rate(vllm:generation_tokens_total[5m]) * 0.0000015)",
+          "legendFormat": "Estimated Compute Cost ($/req)"
+        }
+      ]
+    },
+    {
+      "title": "Semantic Cache Hit Rate (% Cost Savings)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "100 * (sum(rate(muhawir_cache_hits_total[5m])) / (sum(rate(muhawir_cache_hits_total[5m])) + sum(rate(muhawir_cache_misses_total[5m]))))",
+          "legendFormat": "Cache Savings %"
+        }
+      ]
+    },
+    {
+      "title": "Traffic Distribution by Language",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(muhawir_requests_by_language_total[1h])) by (language)",
+          "legendFormat": "{{language}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["muhawir", "cost", "tokens", "finance"],
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Muḥāwir - Cost & Token Economics",
+  "uid": "muhawir-cost-tracking",
+  "version": 1
+}

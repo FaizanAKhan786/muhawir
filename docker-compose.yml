@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: muhawir-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - QDRANT_HOST=qdrant
+      - REDIS_HOST=redis
+      - VLLM_BASE_URL=http://vllm:8001/v1
+      - POSTGRES_DSN=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-changeme}@postgres:5432/muhawir
+      - LANGFUSE_HOST=http://langfuse:3000
+    depends_on:
+      - qdrant
+      - redis
+      - postgres
+      - langfuse
+    restart: unless-stopped
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: muhawir-vllm
+    ports:
+      - "8001:8001"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      --model Qwen/Qwen2.5-14B-Instruct
+      --max-model-len 8192
+      --gpu-memory-utilization 0.85
+      --port 8001
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: muhawir-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: muhawir-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: muhawir-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: muhawir
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  langfuse:
+    image: langfuse/langfuse:latest
+    container_name: muhawir-langfuse
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-changeme}@postgres:5432/muhawir
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-supersecret}
+      NEXTAUTH_URL: http://localhost:3000
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: muhawir-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: muhawir-grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
+  postgres_data:
+  huggingface_cache:

@@ -1,0 +1,81 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Faithfulness Over Time (Threshold >= 0.80)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "muhawir_eval_faithfulness",
+          "legendFormat": "Faithfulness"
+        },
+        {
+          "expr": "0.80",
+          "legendFormat": "Production Gate (0.80)"
+        }
+      ]
+    },
+    {
+      "title": "MRR@10 Over Time (Threshold >= 0.60)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "muhawir_eval_mrr_10",
+          "legendFormat": "MRR@10"
+        },
+        {
+          "expr": "0.60",
+          "legendFormat": "Production Gate (0.60)"
+        }
+      ]
+    },
+    {
+      "title": "Language Consistency (Threshold >= 0.90)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "muhawir_eval_language_consistency",
+          "legendFormat": "Language Consistency"
+        },
+        {
+          "expr": "0.90",
+          "legendFormat": "Production Gate (0.90)"
+        }
+      ]
+    },
+    {
+      "title": "Context Precision & Recall Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "muhawir_eval_context_precision",
+          "legendFormat": "Context Precision (>= 0.70)"
+        },
+        {
+          "expr": "muhawir_eval_context_recall",
+          "legendFormat": "Context Recall (>= 0.65)"
+        }
+      ]
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["muhawir", "evaluation", "mlflow", "quality"],
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Muḥāwir - Evaluation Trends & Quality Gates",
+  "uid": "muhawir-eval-trends",
+  "version": 1
+}

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: muhawir-config
+  labels:
+    app: muhawir
+data:
+  VLLM_BASE_URL: "http://muhawir-vllm:8001/v1"
+  VLLM_MODEL: "Qwen/Qwen2.5-14B-Instruct"
+  QDRANT_HOST: "muhawir-qdrant"
+  QDRANT_PORT: "6333"
+  QDRANT_COLLECTION: "muhawir_docs"
+  REDIS_HOST: "muhawir-redis"
+  REDIS_PORT: "6379"
+  CHUNK_SIZE: "512"
+  CHUNK_OVERLAP: "64"
+  CACHE_SIMILARITY_THRESHOLD: "0.95"
+  CACHE_TTL: "3600"
+  FAITHFULNESS_THRESHOLD: "0.8"
+  MAX_RETRIES: "2"
+  RRF_K: "60"
+  EMBEDDING_MODEL: "BAAI/bge-m3"
+  RERANKER_MODEL: "BAAI/bge-reranker-v2-m3"
