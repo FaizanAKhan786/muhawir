@@ -34,7 +34,15 @@ def setup_pipeline_environment(sample_documents):
         resp = MagicMock()
         choice = MagicMock()
 
-        if "search query variations" in prompt_text:
+        if "complexity classifier" in prompt_text:
+            # Simple queries — route to single-hop path
+            choice.message.content = json.dumps({
+                "is_complex": False,
+                "complexity_score": 0.25,
+                "reasoning": "Simple factoid query",
+                "estimated_hops": 1,
+            })
+        elif "search query variations" in prompt_text:
             choice.message.content = '["variation 1", "variation 2"]'
         elif "Is this answer fully supported?" in prompt_text:
             choice.message.content = '{"faithful": true, "language_ok": true, "score": 0.95}'
@@ -82,6 +90,14 @@ async def test_full_pipeline_arabic_query():
         "retry_count": 0,
         "error": None,
         "trace_id": "test-pipe-ar",
+        "is_multi_hop": False,
+        "sub_queries": [],
+        "reasoning_chain": [],
+        "hop_contexts": [],
+        "current_hop": 0,
+        "max_hops": 3,
+        "synthesis_answer": "",
+        "complexity_score": 0.0,
     }
 
     result = await agent.ainvoke(initial_state)
@@ -110,6 +126,14 @@ async def test_full_pipeline_english_query():
         "retry_count": 0,
         "error": None,
         "trace_id": "test-pipe-en",
+        "is_multi_hop": False,
+        "sub_queries": [],
+        "reasoning_chain": [],
+        "hop_contexts": [],
+        "current_hop": 0,
+        "max_hops": 3,
+        "synthesis_answer": "",
+        "complexity_score": 0.0,
     }
 
     result = await agent.ainvoke(initial_state)

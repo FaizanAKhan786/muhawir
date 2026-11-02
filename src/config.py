@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     MAX_RETRIES: int = 2
     RRF_K: int = 60
 
+    # Multi-hop reasoning settings
+    MAX_HOPS: int = 3
+    COMPLEXITY_THRESHOLD: float = 0.6
+    SUB_QUERY_MAX: int = 4
+    HOP_CONFIDENCE_THRESHOLD: float = 0.7
+    SYNTHESIS_MODEL: str = ""  # If empty, uses VLLM_MODEL
+
 
 @lru_cache
 def get_settings() -> Settings:

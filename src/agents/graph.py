@@ -3,6 +3,14 @@ import logging
 from typing import Any, Callable, Literal
 from langgraph.graph import END, StateGraph
 
+from src.agents.multi_hop import (
+    classify_complexity,
+    decompose_query,
+    final_synthesize,
+    hop_synthesize,
+    multi_hop_rerank,
+    multi_hop_retrieve,
+)
 from src.agents.nodes import (
     detect_language,
     expand_query,
@@ -105,6 +113,43 @@ def check_quality_gate(state: AgentState) -> Literal["format_response", "expand_
     return "format_response"
 
 
+# ---------------------------------------------------------------------------
+# Multi-hop routing decisions
+# ---------------------------------------------------------------------------
+
+
+def route_by_complexity(state: AgentState) -> Literal["expand_query", "decompose_query"]:
+    """After complexity classification, route simple queries to single-hop
+    (expand_query) and complex queries to multi-hop (decompose_query)."""
+    if state.get("is_multi_hop", False):
+        logger.info(
+            "Multi-hop path selected (complexity=%.2f, max_hops=%d)",
+            state.get("complexity_score", 0.0),
+            state.get("max_hops", 1),
+        )
+        return "decompose_query"
+    logger.info("Single-hop path selected (complexity=%.2f)", state.get("complexity_score", 0.0))
+    return "expand_query"
+
+
+def route_after_hop_synthesis(state: AgentState) -> Literal["decompose_query", "final_synthesize"]:
+    """After hop synthesis, decide whether to do another hop or finalize.
+
+    Checks the internal ``_needs_another_hop`` flag set by hop_synthesize.
+    """
+    # The hop_synthesize node stores this transient flag
+    needs_more = bool(state.get("_needs_another_hop", False))
+    current_hop = state.get("current_hop", 1)
+    max_hops = state.get("max_hops", 3)
+
+    if needs_more and current_hop < max_hops:
+        logger.info("Another hop needed (hop %d/%d)", current_hop + 1, max_hops)
+        return "decompose_query"
+
+    logger.info("All hops complete (%d hops). Proceeding to final synthesis.", current_hop)
+    return "final_synthesize"
+
+
 async def wrapped_expand_query(state: AgentState) -> dict[str, Any]:
     """Expand query and increment retry count if this is a retry."""
     res = await expand_query(state)
@@ -114,12 +159,64 @@ async def wrapped_expand_query(state: AgentState) -> dict[str, Any]:
     return res
 
 
+# ---------------------------------------------------------------------------
+# Graph builder
+# ---------------------------------------------------------------------------
+
+
 def build_graph() -> StateGraph:
-    """Build and wire the LangGraph StateGraph for Muḥāwir."""
+    """Build and wire the LangGraph StateGraph for Muḥāwir with multi-hop support.
+
+    Graph topology:
+    ┌──────────────────┐
+    │  detect_language  │
+    └────────┬─────────┘
+             │
+    ┌────────▼──────────┐
+    │classify_complexity │
+    └────────┬──────────┘
+             │
+     ┌───────┴────────┐
+     │ simple?         │ complex?
+     ▼                 ▼
+    ┌──────────┐  ┌────────────────┐
+    │expand    │  │decompose_query │◄──────────────┐
+    │_query    │  └──────┬─────────┘               │
+    └────┬─────┘         │                         │
+         │        ┌──────▼──────────┐              │
+    ┌────▼─────┐  │multi_hop_retrieve│             │
+    │retrieve  │  └──────┬──────────┘              │
+    └────┬─────┘         │                         │
+         │        ┌──────▼──────────┐              │
+    ┌────▼─────┐  │multi_hop_rerank │              │
+    │rerank    │  └──────┬──────────┘              │
+    └────┬─────┘         │                         │
+         │        ┌──────▼──────────┐   needs      │
+    ┌────▼─────┐  │hop_synthesize   ├──more hop────┘
+    │generate  │  └──────┬──────────┘
+    └────┬─────┘         │ done
+         │        ┌──────▼──────────┐
+    ┌────▼──────┐ │final_synthesize │
+    │quality    │ └──────┬──────────┘
+    │_gate      │        │
+    └────┬──────┘ ┌──────▼──────────┐
+         │        │quality_gate_mh  │
+    ┌────┴───┐    └──────┬──────────┘
+    │ PASS?  │    ┌──────┴──────┐
+    │FAIL?   │    │format_resp  │
+    ▼        ▼    │_multi_hop   │
+    format   expand└─────┬──────┘
+    _resp    _query       │
+    │                    END
+    END
+    """
     workflow = StateGraph(AgentState)
 
-    # Register nodes
+    # ---- Shared entry nodes ----
     workflow.add_node("detect_language", trace_node("detect_language", detect_language))
+    workflow.add_node("classify_complexity", trace_node("classify_complexity", classify_complexity))
+
+    # ---- Single-hop path (original) ----
     workflow.add_node("expand_query", trace_node("expand_query", wrapped_expand_query))
     workflow.add_node("retrieve", trace_node("retrieve", retrieve))
     workflow.add_node("rerank", trace_node("rerank", rerank))
@@ -127,15 +224,35 @@ def build_graph() -> StateGraph:
     workflow.add_node("quality_gate", trace_node("quality_gate", quality_gate))
     workflow.add_node("format_response", trace_node("format_response", format_response))
 
-    # Sequential edges
+    # ---- Multi-hop path ----
+    workflow.add_node("decompose_query", trace_node("decompose_query", decompose_query))
+    workflow.add_node("multi_hop_retrieve", trace_node("multi_hop_retrieve", multi_hop_retrieve))
+    workflow.add_node("multi_hop_rerank", trace_node("multi_hop_rerank", multi_hop_rerank))
+    workflow.add_node("hop_synthesize", trace_node("hop_synthesize", hop_synthesize))
+    workflow.add_node("final_synthesize", trace_node("final_synthesize", final_synthesize))
+    workflow.add_node("quality_gate_mh", trace_node("quality_gate_mh", quality_gate))
+    workflow.add_node("format_response_mh", trace_node("format_response_mh", format_response))
+
+    # ---- Wiring ----
+    # Entry
     workflow.set_entry_point("detect_language")
-    workflow.add_edge("detect_language", "expand_query")
+    workflow.add_edge("detect_language", "classify_complexity")
+
+    # Complexity routing: simple → expand_query, complex → decompose_query
+    workflow.add_conditional_edges(
+        "classify_complexity",
+        route_by_complexity,
+        {
+            "expand_query": "expand_query",
+            "decompose_query": "decompose_query",
+        },
+    )
+
+    # Single-hop sequential edges
     workflow.add_edge("expand_query", "retrieve")
     workflow.add_edge("retrieve", "rerank")
     workflow.add_edge("rerank", "generate")
     workflow.add_edge("generate", "quality_gate")
-
-    # Conditional branching
     workflow.add_conditional_edges(
         "quality_gate",
         check_quality_gate,
@@ -144,8 +261,34 @@ def build_graph() -> StateGraph:
             "expand_query": "expand_query",
         },
     )
-
     workflow.add_edge("format_response", END)
+
+    # Multi-hop sequential edges
+    workflow.add_edge("decompose_query", "multi_hop_retrieve")
+    workflow.add_edge("multi_hop_retrieve", "multi_hop_rerank")
+    workflow.add_edge("multi_hop_rerank", "hop_synthesize")
+
+    # Hop synthesis routing: another hop → decompose_query, done → final_synthesize
+    workflow.add_conditional_edges(
+        "hop_synthesize",
+        route_after_hop_synthesis,
+        {
+            "decompose_query": "decompose_query",
+            "final_synthesize": "final_synthesize",
+        },
+    )
+
+    # Final synthesis → quality gate → format
+    workflow.add_edge("final_synthesize", "quality_gate_mh")
+    workflow.add_conditional_edges(
+        "quality_gate_mh",
+        check_quality_gate,
+        {
+            "format_response": "format_response_mh",
+            "expand_query": "decompose_query",  # Re-decompose on quality failure
+        },
+    )
+    workflow.add_edge("format_response_mh", END)
 
     return workflow
 

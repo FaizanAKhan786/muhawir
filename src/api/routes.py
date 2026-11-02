@@ -94,6 +94,14 @@ async def chat_stream(
             "retry_count": 0,
             "error": None,
             "trace_id": trace_id,
+            "is_multi_hop": False,
+            "sub_queries": [],
+            "reasoning_chain": [],
+            "hop_contexts": [],
+            "current_hop": 0,
+            "max_hops": 3,
+            "synthesis_answer": "",
+            "complexity_score": 0.0,
         }
 
         try:
@@ -110,6 +118,10 @@ async def chat_stream(
                 "quality_score": result_state.get("quality_score"),
                 "confidence": round(result_state.get("quality_score", {}).get("faithfulness", 0.9), 2),
                 "trace_id": trace_id,
+                "is_multi_hop": result_state.get("is_multi_hop", False),
+                "reasoning_chain": result_state.get("reasoning_chain", []),
+                "hops_used": result_state.get("current_hop", 0),
+                "complexity_score": round(result_state.get("complexity_score", 0.0), 2),
             }
 
             # Save in semantic cache
