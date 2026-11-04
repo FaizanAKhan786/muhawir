@@ -19,6 +19,12 @@ _MH_DEFAULTS = {
     "sanitized_query": "",
     "current_step": "",
     "steps_completed": [],
+    "session_id": None,
+    "user_id": None,
+    "chat_history": [],
+    "raw_query": "",
+    "rewritten_query": "",
+    "user_memories": [],
 }
 
 

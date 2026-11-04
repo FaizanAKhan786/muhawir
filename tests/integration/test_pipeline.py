@@ -104,6 +104,12 @@ async def test_full_pipeline_arabic_query():
         "sanitized_query": "ما هي محاور رؤية السعودية 2030 وأهدافها؟",
         "current_step": "",
         "steps_completed": [],
+        "session_id": None,
+        "user_id": None,
+        "chat_history": [],
+        "raw_query": "ما هي محاور رؤية السعودية 2030 وأهدافها؟",
+        "rewritten_query": "ما هي محاور رؤية السعودية 2030 وأهدافها؟",
+        "user_memories": [],
     }
 
     result = await agent.ainvoke(initial_state)
@@ -146,6 +152,12 @@ async def test_full_pipeline_english_query():
         "sanitized_query": "What are the core pillars of Qatar National Vision 2030?",
         "current_step": "",
         "steps_completed": [],
+        "session_id": None,
+        "user_id": None,
+        "chat_history": [],
+        "raw_query": "What are the core pillars of Qatar National Vision 2030?",
+        "rewritten_query": "What are the core pillars of Qatar National Vision 2030?",
+        "user_memories": [],
     }
 
     result = await agent.ainvoke(initial_state)

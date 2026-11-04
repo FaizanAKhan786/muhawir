@@ -13,6 +13,7 @@ from src.agents.multi_hop import (
 )
 from src.agents.nodes import (
     blocked_response,
+    contextualize_query,
     detect_language,
     expand_query,
     format_response,
@@ -200,6 +201,7 @@ def build_graph() -> StateGraph:
 
     # ---- Shared nodes ----
     workflow.add_node("detect_language", trace_node("detect_language", detect_language))
+    workflow.add_node("contextualize_query", trace_node("contextualize_query", contextualize_query))
     workflow.add_node("classify_complexity", trace_node("classify_complexity", classify_complexity))
 
     # ---- Single-hop path (original) ----
@@ -236,8 +238,9 @@ def build_graph() -> StateGraph:
     )
     workflow.add_edge("blocked_response", END)
 
-    # Language detection → complexity classification
-    workflow.add_edge("detect_language", "classify_complexity")
+    # Language detection → Coreference Contextualization → complexity classification
+    workflow.add_edge("detect_language", "contextualize_query")
+    workflow.add_edge("contextualize_query", "classify_complexity")
 
     # Complexity routing: simple → expand_query, complex → decompose_query
     workflow.add_conditional_edges(

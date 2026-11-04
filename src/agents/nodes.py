@@ -459,3 +459,75 @@ async def output_guardrail(state: AgentState) -> dict[str, Any]:
         "current_step": "🛡️ Output Safety Check",
         "steps_completed": state.get("steps_completed", []) + ["output_guardrail"],
     }
+
+
+# ---------------------------------------------------------------------------
+# Stateful Memory & Coreference Resolution Node
+# ---------------------------------------------------------------------------
+
+
+async def contextualize_query(state: AgentState) -> dict[str, Any]:
+    """Node: Disambiguate and resolve pronouns in follow-up queries using conversation history.
+
+    Also retrieves relevant long-term memories for personalized context injection.
+    """
+    from src.memory.coreference import resolve_coreference
+    from src.memory.long_term import get_long_term_memory_store
+    from src.memory.short_term import ConversationMessage, get_conversation_memory
+
+    query = state.get("query", "")
+    raw_query = state.get("raw_query") or query
+    language = state.get("language", "en")
+    session_id = state.get("session_id")
+    user_id = state.get("user_id")
+
+    # 1. Fetch short-term history if available
+    history: list[ConversationMessage] = []
+    if session_id:
+        conv_mem = get_conversation_memory()
+        history = await conv_mem.get_history(session_id, max_messages=8)
+
+    # 2. Retrieve enduring user memories if user_id is provided
+    retrieved_memories: list[dict[str, Any]] = []
+    if user_id:
+        lt_store = get_long_term_memory_store()
+        mem_facts = await lt_store.retrieve_user_memories(user_id=user_id, query=query, top_k=3)
+        retrieved_memories = [m.model_dump() for m in mem_facts]
+
+    # 3. Resolve coreferences if history exists
+    client = get_openai_client()
+    settings = get_settings()
+
+    rewritten = query
+    if history:
+        rewritten = await resolve_coreference(
+            query=query,
+            history=history,
+            language=language,
+            client=client,
+            model=settings.VLLM_MODEL,
+        )
+
+    # 4. Record reasoning step if rewritten
+    reasoning_chain = state.get("reasoning_chain", [])
+    if rewritten != query:
+        reasoning_chain = reasoning_chain + [
+            {
+                "step_number": len(reasoning_chain),
+                "action": "decompose",
+                "input_text": f"Follow-up: {query}",
+                "output_text": f"Resolved to standalone query: {rewritten}",
+                "confidence": 0.90,
+            }
+        ]
+
+    return {
+        "raw_query": raw_query,
+        "query": rewritten,
+        "rewritten_query": rewritten,
+        "chat_history": [m.model_dump() for m in history],
+        "user_memories": retrieved_memories,
+        "reasoning_chain": reasoning_chain,
+        "current_step": "🧠 Contextualizing & Resolving Coreferences",
+        "steps_completed": state.get("steps_completed", []) + ["contextualize_query"],
+    }

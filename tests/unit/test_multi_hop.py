@@ -49,6 +49,12 @@ def _make_base_state(**overrides) -> AgentState:
         "sanitized_query": "Compare the economic goals of Saudi Vision 2030 and Qatar National Vision 2030",
         "current_step": "",
         "steps_completed": [],
+        "session_id": None,
+        "user_id": None,
+        "chat_history": [],
+        "raw_query": "Compare the economic goals of Saudi Vision 2030 and Qatar National Vision 2030",
+        "rewritten_query": "Compare the economic goals of Saudi Vision 2030 and Qatar National Vision 2030",
+        "user_memories": [],
     }
     base.update(overrides)
     return base

@@ -14,14 +14,20 @@ from src.api.middleware import verify_api_key
 from src.api.schemas import (
     ChatRequest,
     ChatResponse,
+    ConversationMessageModel,
     EvalRequest,
     EvalResponse,
     HealthResponse,
     ServiceStatus,
+    SessionHistoryResponse,
+    UserMemoriesResponse,
+    UserMemoryFactModel,
 )
 from src.config import get_settings
 from src.evaluation.ragas_eval import run_ragas_evaluation
 from src.evaluation.regression import check_regression
+from src.memory.long_term import get_long_term_memory_store
+from src.memory.short_term import get_conversation_memory
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +114,12 @@ async def chat_stream(
             "sanitized_query": chat_req.query,
             "current_step": "initializing",
             "steps_completed": [],
+            "session_id": chat_req.session_id,
+            "user_id": chat_req.user_id,
+            "chat_history": [],
+            "raw_query": chat_req.query,
+            "rewritten_query": chat_req.query,
+            "user_memories": [],
         }
 
         # --- Stream intermediate node events using astream_events ---
@@ -119,6 +131,7 @@ async def chat_stream(
                 "input_guardrail":      "🛡️ Input Safety Check",
                 "blocked_response":     "🚫 Request Blocked",
                 "detect_language":      "🌐 Detecting Language",
+                "contextualize_query":  "🧠 Resolving Coreferences & History",
                 "classify_complexity":  "🧠 Classifying Query Complexity",
                 "expand_query":         "🔎 Expanding Query",
                 "retrieve":             "📚 Retrieving Knowledge",
@@ -173,6 +186,10 @@ async def chat_stream(
                 "quality_score": result_state.get("quality_score"),
                 "confidence": round(result_state.get("quality_score", {}).get("faithfulness", 0.9), 2),
                 "trace_id": trace_id,
+                "session_id": chat_req.session_id,
+                "user_id": chat_req.user_id,
+                "raw_query": result_state.get("raw_query", chat_req.query),
+                "rewritten_query": result_state.get("rewritten_query", chat_req.query),
                 "is_multi_hop": result_state.get("is_multi_hop", False),
                 "reasoning_chain": result_state.get("reasoning_chain", []),
                 "hops_used": result_state.get("current_hop", 0),
@@ -181,6 +198,19 @@ async def chat_stream(
                 "output_sanitized": result_state.get("output_sanitized", False),
                 "steps_completed": result_state.get("steps_completed", []),
             }
+
+            # Save in short-term conversation memory
+            if chat_req.session_id and result_state.get("final_answer") and not result_state.get("input_blocked"):
+                try:
+                    conv_mem = get_conversation_memory()
+                    await conv_mem.add_turn(
+                        session_id=chat_req.session_id,
+                        user_query=chat_req.query,
+                        assistant_response=result_state.get("final_answer", ""),
+                        metadata={"trace_id": trace_id, "confidence": final_response["confidence"]},
+                    )
+                except Exception as mem_err:
+                    logger.warning("Failed to persist conversation turn: %s", mem_err)
 
             # Save in semantic cache (only non-blocked, non-sanitized responses)
             if cache and result_state.get("final_answer") and not result_state.get("input_blocked"):
@@ -298,3 +328,48 @@ async def metrics_endpoint() -> Response:
         content=generate_latest(),
         media_type=CONTENT_TYPE_LATEST,
     )
+
+
+# ---------------------------------------------------------------------------
+# Session & Long-Term Memory Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/sessions/{session_id}/history", response_model=SessionHistoryResponse)
+async def get_session_history(session_id: str) -> SessionHistoryResponse:
+    """Retrieve the recent sliding window dialogue history for a session."""
+    conv_mem = get_conversation_memory()
+    history = await conv_mem.get_history(session_id=session_id, max_messages=50)
+    return SessionHistoryResponse(
+        session_id=session_id,
+        message_count=len(history),
+        messages=[ConversationMessageModel(**m.model_dump()) for m in history],
+    )
+
+
+@router.delete("/sessions/{session_id}")
+async def clear_session(session_id: str) -> dict[str, Any]:
+    """Clear dialogue history for a session."""
+    conv_mem = get_conversation_memory()
+    success = await conv_mem.clear_session(session_id)
+    return {"session_id": session_id, "cleared": success}
+
+
+@router.get("/users/{user_id}/memories", response_model=UserMemoriesResponse)
+async def get_user_memories(user_id: str, query: str = "") -> UserMemoriesResponse:
+    """Retrieve long-term semantic profile facts and preferences for a user."""
+    lt_store = get_long_term_memory_store()
+    memories = await lt_store.retrieve_user_memories(user_id=user_id, query=query, top_k=20)
+    return UserMemoriesResponse(
+        user_id=user_id,
+        memory_count=len(memories),
+        memories=[UserMemoryFactModel(**m.model_dump()) for m in memories],
+    )
+
+
+@router.delete("/users/{user_id}/memories")
+async def clear_user_memories(user_id: str) -> dict[str, Any]:
+    """Clear long-term semantic memory for a user."""
+    lt_store = get_long_term_memory_store()
+    success = await lt_store.clear_user_memories(user_id)
+    return {"user_id": user_id, "cleared": success}

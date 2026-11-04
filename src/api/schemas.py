@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field, model_validator
 
 class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000, description="User question in Arabic or English")
-    session_id: str | None = Field(default=None, description="Optional session or conversation ID")
+    session_id: str | None = Field(default=None, description="Optional session or conversation ID for multi-turn dialogue")
+    user_id: str | None = Field(default=None, description="Optional user ID for long-term memory personalization")
 
     @model_validator(mode="after")
     def validate_and_sanitize_query(self) -> "ChatRequest":
@@ -70,3 +71,30 @@ class ServiceStatus(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     services: dict[str, ServiceStatus]
+
+
+class ConversationMessageModel(BaseModel):
+    role: str
+    content: str
+    timestamp: str
+    metadata: dict[str, Any] = {}
+
+
+class SessionHistoryResponse(BaseModel):
+    session_id: str
+    message_count: int
+    messages: list[ConversationMessageModel]
+
+
+class UserMemoryFactModel(BaseModel):
+    fact_id: str
+    user_id: str
+    content: str
+    category: str
+    timestamp: str
+
+
+class UserMemoriesResponse(BaseModel):
+    user_id: str
+    memory_count: int
+    memories: list[UserMemoryFactModel]

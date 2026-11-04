@@ -89,3 +89,10 @@ class AgentState(TypedDict):
     # Streaming step visibility
     current_step: str            # Human-readable current pipeline stage name
     steps_completed: list[str]   # Ordered list of completed step names
+    # Stateful memory & coreference fields
+    session_id: str | None       # Active session identifier
+    user_id: str | None          # End-user identifier for long-term memory
+    chat_history: list[dict[str, Any]] # Recent conversation messages
+    raw_query: str               # Original unedited user query
+    rewritten_query: str         # Standalone query after coreference resolution
+    user_memories: list[dict[str, Any]] # Enduring user facts retrieved from semantic store
