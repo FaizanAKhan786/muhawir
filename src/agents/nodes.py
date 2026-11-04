@@ -6,7 +6,7 @@ import re
 from typing import Any
 from openai import AsyncOpenAI
 
-from src.agents.state import AgentState, Citation, QualityScore, RetrievedDocument
+from src.agents.state import AgentState, Citation, GuardrailViolation, QualityScore, RetrievedDocument
 from src.config import get_settings
 from src.retrieval.hybrid import hybrid_retrieve
 from src.retrieval.reranker import NeuralReranker
@@ -327,3 +327,135 @@ async def format_response(state: AgentState) -> dict[str, Any]:
         final_text = f"⚠️ Low confidence: {final_text}"
 
     return {"final_answer": final_text}
+
+
+# ---------------------------------------------------------------------------
+# Guardrail Nodes
+# ---------------------------------------------------------------------------
+
+
+async def input_guardrail(state: AgentState) -> dict[str, Any]:
+    """Node: Run input safety guardrails before any LLM/retrieval call.
+
+    Performs:
+    - Query length and structural sanity checks
+    - Prompt injection detection (English + Arabic)
+    - Toxicity / harmful content heuristic filtering
+    - PII detection and redaction
+
+    Sets ``input_blocked=True`` if any hard guardrail fires, which causes
+    ``check_input_guardrail`` conditional edge to route to ``blocked_response``.
+    Sets ``sanitized_query`` with PII-redacted query for downstream use.
+    """
+    from src.guardrails.input_guards import run_input_guards
+
+    query = state.get("query", "")
+    existing_violations: list[GuardrailViolation] = state.get("guardrail_violations", [])
+
+    result = run_input_guards(query, pii_strict=False)
+
+    new_violations: list[GuardrailViolation] = []
+    for v in result.violations:
+        new_violations.append({
+            "stage": "input",
+            "check": result.metadata.get("matched_patterns", ["unknown"])[0] if result.metadata.get("matched_patterns") else "limit_check",
+            "description": v,
+        })
+
+    if not result.allowed:
+        logger.warning(
+            "Input guardrail BLOCKED query (trace_id=%s): %s",
+            state.get("trace_id", ""),
+            result.violations,
+        )
+
+    return {
+        "input_blocked": not result.allowed,
+        "sanitized_query": result.modified_text,
+        "guardrail_violations": existing_violations + new_violations,
+        "current_step": "🛡️ Input Safety Check",
+        "steps_completed": state.get("steps_completed", []) + ["input_guardrail"],
+    }
+
+
+async def blocked_response(state: AgentState) -> dict[str, Any]:
+    """Node: Return a safe refusal when input guardrails block the query.
+
+    Produces a bilingual refusal message and sets final_answer so the
+    format_response node can serve it cleanly.
+    """
+    language = state.get("language", "en")
+    violations = state.get("guardrail_violations", [])
+    violation_types = {v.get("stage", "") + ":" + v.get("check", "") for v in violations}
+
+    if language == "ar":
+        message = (
+            "عذراً، لا يمكنني معالجة هذا الطلب. "
+            "يبدو أنه يحتوي على محتوى غير مسموح به أو نمط غير آمن. "
+            "يرجى إعادة صياغة سؤالك."
+        )
+    else:
+        message = (
+            "I'm sorry, I cannot process this request. "
+            "It appears to contain a disallowed pattern or unsafe content. "
+            "Please rephrase your question."
+        )
+
+    logger.info(
+        "Serving blocked response (trace_id=%s, types=%s)",
+        state.get("trace_id", ""),
+        violation_types,
+    )
+
+    return {
+        "draft_answer": message,
+        "final_answer": message,
+        "citations": [],
+        "quality_score": {"faithfulness": 0.0, "language_consistent": True, "grounded": False},
+        "current_step": "🚫 Request Blocked",
+        "steps_completed": state.get("steps_completed", []) + ["blocked_response"],
+    }
+
+
+async def output_guardrail(state: AgentState) -> dict[str, Any]:
+    """Node: Run output safety guardrails after answer generation.
+
+    Performs:
+    - Hallucination marker detection
+    - Structural response validation (citations, language, length)
+    - PII leakage detection and redaction from LLM output
+
+    Modifies ``draft_answer`` with the sanitized version and appends
+    any violations to ``guardrail_violations``.
+    """
+    from src.guardrails.output_guards import run_output_guards
+
+    draft = state.get("draft_answer", "")
+    citations = state.get("citations", [])
+    language = state.get("language", "en")
+    existing_violations: list[GuardrailViolation] = state.get("guardrail_violations", [])
+
+    result = run_output_guards(answer=draft, citations=citations, language=language)
+
+    new_violations: list[GuardrailViolation] = []
+    for v in result.violations:
+        new_violations.append({
+            "stage": "output",
+            "check": "output_guard",
+            "description": v,
+        })
+
+    if result.violations:
+        logger.warning(
+            "Output guardrail violations (trace_id=%s): %s",
+            state.get("trace_id", ""),
+            result.violations,
+        )
+
+    return {
+        "draft_answer": result.modified_text,
+        "output_sanitized": result.metadata.get("pii_redacted", False),
+        "guardrail_violations": existing_violations + new_violations,
+        "current_step": "🛡️ Output Safety Check",
+        "steps_completed": state.get("steps_completed", []) + ["output_guardrail"],
+    }

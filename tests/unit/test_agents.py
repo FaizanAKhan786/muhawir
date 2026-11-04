@@ -13,6 +13,12 @@ _MH_DEFAULTS = {
     "max_hops": 3,
     "synthesis_answer": "",
     "complexity_score": 0.0,
+    "guardrail_violations": [],
+    "input_blocked": False,
+    "output_sanitized": False,
+    "sanitized_query": "",
+    "current_step": "",
+    "steps_completed": [],
 }
 
 

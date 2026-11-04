@@ -51,6 +51,14 @@ class HopContext(TypedDict):
     confidence: float
 
 
+class GuardrailViolation(TypedDict):
+    """Records a single guardrail policy violation."""
+
+    stage: str          # "input" or "output"
+    check: str          # name of the check that fired
+    description: str    # human-readable explanation
+
+
 class AgentState(TypedDict):
     query: str
     language: Literal["ar", "en", "mixed"]
@@ -73,3 +81,11 @@ class AgentState(TypedDict):
     max_hops: int
     synthesis_answer: str
     complexity_score: float
+    # Guardrail fields
+    guardrail_violations: list[GuardrailViolation]
+    input_blocked: bool          # True if input guardrails rejected the query
+    output_sanitized: bool       # True if output was modified by output guards
+    sanitized_query: str         # PII-redacted version of the original query
+    # Streaming step visibility
+    current_step: str            # Human-readable current pipeline stage name
+    steps_completed: list[str]   # Ordered list of completed step names

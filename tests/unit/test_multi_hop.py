@@ -43,6 +43,12 @@ def _make_base_state(**overrides) -> AgentState:
         "max_hops": 3,
         "synthesis_answer": "",
         "complexity_score": 0.0,
+        "guardrail_violations": [],
+        "input_blocked": False,
+        "output_sanitized": False,
+        "sanitized_query": "Compare the economic goals of Saudi Vision 2030 and Qatar National Vision 2030",
+        "current_step": "",
+        "steps_completed": [],
     }
     base.update(overrides)
     return base

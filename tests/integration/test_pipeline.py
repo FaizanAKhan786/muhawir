@@ -98,6 +98,12 @@ async def test_full_pipeline_arabic_query():
         "max_hops": 3,
         "synthesis_answer": "",
         "complexity_score": 0.0,
+        "guardrail_violations": [],
+        "input_blocked": False,
+        "output_sanitized": False,
+        "sanitized_query": "ما هي محاور رؤية السعودية 2030 وأهدافها؟",
+        "current_step": "",
+        "steps_completed": [],
     }
 
     result = await agent.ainvoke(initial_state)
@@ -134,6 +140,12 @@ async def test_full_pipeline_english_query():
         "max_hops": 3,
         "synthesis_answer": "",
         "complexity_score": 0.0,
+        "guardrail_violations": [],
+        "input_blocked": False,
+        "output_sanitized": False,
+        "sanitized_query": "What are the core pillars of Qatar National Vision 2030?",
+        "current_step": "",
+        "steps_completed": [],
     }
 
     result = await agent.ainvoke(initial_state)

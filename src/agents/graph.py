@@ -12,10 +12,13 @@ from src.agents.multi_hop import (
     multi_hop_retrieve,
 )
 from src.agents.nodes import (
+    blocked_response,
     detect_language,
     expand_query,
     format_response,
     generate,
+    input_guardrail,
+    output_guardrail,
     quality_gate,
     rerank,
     retrieve,
@@ -118,6 +121,14 @@ def check_quality_gate(state: AgentState) -> Literal["format_response", "expand_
 # ---------------------------------------------------------------------------
 
 
+def check_input_guardrail(state: AgentState) -> Literal["detect_language", "blocked_response"]:
+    """Route after input_guardrail: pass or block."""
+    if state.get("input_blocked", False):
+        logger.warning("Input guardrail blocked query (trace_id=%s)", state.get("trace_id", ""))
+        return "blocked_response"
+    return "detect_language"
+
+
 def route_by_complexity(state: AgentState) -> Literal["expand_query", "decompose_query"]:
     """After complexity classification, route simple queries to single-hop
     (expand_query) and complex queries to multi-hop (decompose_query)."""
@@ -165,54 +176,29 @@ async def wrapped_expand_query(state: AgentState) -> dict[str, Any]:
 
 
 def build_graph() -> StateGraph:
-    """Build and wire the LangGraph StateGraph for Muḥāwir with multi-hop support.
+    """Build and wire the LangGraph StateGraph for Muḥāwir.
 
-    Graph topology:
-    ┌──────────────────┐
-    │  detect_language  │
-    └────────┬─────────┘
-             │
-    ┌────────▼──────────┐
-    │classify_complexity │
-    └────────┬──────────┘
-             │
-     ┌───────┴────────┐
-     │ simple?         │ complex?
-     ▼                 ▼
-    ┌──────────┐  ┌────────────────┐
-    │expand    │  │decompose_query │◄──────────────┐
-    │_query    │  └──────┬─────────┘               │
-    └────┬─────┘         │                         │
-         │        ┌──────▼──────────┐              │
-    ┌────▼─────┐  │multi_hop_retrieve│             │
-    │retrieve  │  └──────┬──────────┘              │
-    └────┬─────┘         │                         │
-         │        ┌──────▼──────────┐              │
-    ┌────▼─────┐  │multi_hop_rerank │              │
-    │rerank    │  └──────┬──────────┘              │
-    └────┬─────┘         │                         │
-         │        ┌──────▼──────────┐   needs      │
-    ┌────▼─────┐  │hop_synthesize   ├──more hop────┘
-    │generate  │  └──────┬──────────┘
-    └────┬─────┘         │ done
-         │        ┌──────▼──────────┐
-    ┌────▼──────┐ │final_synthesize │
-    │quality    │ └──────┬──────────┘
-    │_gate      │        │
-    └────┬──────┘ ┌──────▼──────────┐
-         │        │quality_gate_mh  │
-    ┌────┴───┐    └──────┬──────────┘
-    │ PASS?  │    ┌──────┴──────┐
-    │FAIL?   │    │format_resp  │
-    ▼        ▼    │_multi_hop   │
-    format   expand└─────┬──────┘
-    _resp    _query       │
-    │                    END
-    END
+    Full pipeline topology:
+    input_guardrail
+        ├─ BLOCKED → blocked_response → END
+        └─ PASS → detect_language → classify_complexity
+                        ├─ simple → expand_query → retrieve → rerank
+                        │           → output_guardrail → generate → quality_gate
+                        │                └─ PASS → format_response → END
+                        │                └─ FAIL/retry → expand_query (loop)
+                        └─ complex → decompose_query → multi_hop_retrieve
+                                    → multi_hop_rerank → hop_synthesize
+                                        ├─ needs_hop → decompose_query (loop)
+                                        └─ done → final_synthesize → output_guardrail_mh
+                                                    → quality_gate_mh → format_response_mh → END
     """
     workflow = StateGraph(AgentState)
 
-    # ---- Shared entry nodes ----
+    # ---- Guardrail entry ----
+    workflow.add_node("input_guardrail", trace_node("input_guardrail", input_guardrail))
+    workflow.add_node("blocked_response", trace_node("blocked_response", blocked_response))
+
+    # ---- Shared nodes ----
     workflow.add_node("detect_language", trace_node("detect_language", detect_language))
     workflow.add_node("classify_complexity", trace_node("classify_complexity", classify_complexity))
 
@@ -233,9 +219,24 @@ def build_graph() -> StateGraph:
     workflow.add_node("quality_gate_mh", trace_node("quality_gate_mh", quality_gate))
     workflow.add_node("format_response_mh", trace_node("format_response_mh", format_response))
 
+    # ---- Output guardrail nodes (one per path) ----
+    workflow.add_node("output_guardrail", trace_node("output_guardrail", output_guardrail))
+    workflow.add_node("output_guardrail_mh", trace_node("output_guardrail_mh", output_guardrail))
+
     # ---- Wiring ----
-    # Entry
-    workflow.set_entry_point("detect_language")
+    # Entry: input guardrail first
+    workflow.set_entry_point("input_guardrail")
+    workflow.add_conditional_edges(
+        "input_guardrail",
+        check_input_guardrail,
+        {
+            "detect_language": "detect_language",
+            "blocked_response": "blocked_response",
+        },
+    )
+    workflow.add_edge("blocked_response", END)
+
+    # Language detection → complexity classification
     workflow.add_edge("detect_language", "classify_complexity")
 
     # Complexity routing: simple → expand_query, complex → decompose_query
@@ -252,7 +253,8 @@ def build_graph() -> StateGraph:
     workflow.add_edge("expand_query", "retrieve")
     workflow.add_edge("retrieve", "rerank")
     workflow.add_edge("rerank", "generate")
-    workflow.add_edge("generate", "quality_gate")
+    workflow.add_edge("generate", "output_guardrail")
+    workflow.add_edge("output_guardrail", "quality_gate")
     workflow.add_conditional_edges(
         "quality_gate",
         check_quality_gate,
@@ -278,8 +280,9 @@ def build_graph() -> StateGraph:
         },
     )
 
-    # Final synthesis → quality gate → format
-    workflow.add_edge("final_synthesize", "quality_gate_mh")
+    # Final synthesis → output guardrail → quality gate → format
+    workflow.add_edge("final_synthesize", "output_guardrail_mh")
+    workflow.add_edge("output_guardrail_mh", "quality_gate_mh")
     workflow.add_conditional_edges(
         "quality_gate_mh",
         check_quality_gate,

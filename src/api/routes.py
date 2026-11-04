@@ -78,7 +78,7 @@ async def chat_stream(
 
     async def event_generator() -> AsyncGenerator[dict, None]:
         start_time = time.time()
-        yield {"event": "status", "data": json.dumps({"type": "status", "data": "Detecting language..."})}
+        yield {"event": "status", "data": json.dumps({"type": "status", "step": "🛡️ Input Safety Check", "data": "Running input guardrails..."})}
 
         initial_state: AgentState = {
             "query": chat_req.query,
@@ -102,14 +102,69 @@ async def chat_stream(
             "max_hops": 3,
             "synthesis_answer": "",
             "complexity_score": 0.0,
+            "guardrail_violations": [],
+            "input_blocked": False,
+            "output_sanitized": False,
+            "sanitized_query": chat_req.query,
+            "current_step": "initializing",
+            "steps_completed": [],
         }
 
+        # --- Stream intermediate node events using astream_events ---
         try:
             agent = get_agent()
-            yield {"event": "status", "data": json.dumps({"type": "status", "data": "Retrieving and synthesizing knowledge..."})}
 
-            # Execute graph
-            result_state = await agent.ainvoke(initial_state)
+            # Step visibility: stream agent node events
+            STEP_LABELS: dict[str, str] = {
+                "input_guardrail":      "🛡️ Input Safety Check",
+                "blocked_response":     "🚫 Request Blocked",
+                "detect_language":      "🌐 Detecting Language",
+                "classify_complexity":  "🧠 Classifying Query Complexity",
+                "expand_query":         "🔎 Expanding Query",
+                "retrieve":             "📚 Retrieving Knowledge",
+                "rerank":               "⚡ Reranking Results",
+                "generate":             "✍️ Generating Answer",
+                "output_guardrail":     "🛡️ Output Safety Check",
+                "quality_gate":         "✅ Quality Gate",
+                "format_response":      "📋 Formatting Response",
+                "decompose_query":      "🔬 Decomposing Into Sub-Queries",
+                "multi_hop_retrieve":   "📚 Multi-Hop Retrieval",
+                "multi_hop_rerank":     "⚡ Multi-Hop Reranking",
+                "hop_synthesize":       "🔗 Synthesizing Hop Findings",
+                "final_synthesize":     "🎯 Final Cross-Hop Synthesis",
+                "output_guardrail_mh":  "🛡️ Output Safety Check",
+                "quality_gate_mh":      "✅ Multi-Hop Quality Gate",
+                "format_response_mh":   "📋 Formatting Response",
+            }
+
+            last_state = initial_state
+            async for event in agent.astream_events(initial_state, version="v1"):
+                kind = event.get("event", "")
+                name = event.get("name", "")
+
+                if kind == "on_chain_start" and name in STEP_LABELS:
+                    label = STEP_LABELS[name]
+                    yield {
+                        "event": "step",
+                        "data": json.dumps({"type": "step", "node": name, "label": label, "status": "started"}),
+                    }
+
+                elif kind == "on_chain_end" and name in STEP_LABELS:
+                    label = STEP_LABELS[name]
+                    output = event.get("data", {}).get("output", {})
+                    # Capture the latest state from node output
+                    if isinstance(output, dict):
+                        last_state = {**last_state, **output}
+                    yield {
+                        "event": "step",
+                        "data": json.dumps({"type": "step", "node": name, "label": label, "status": "completed"}),
+                    }
+
+            result_state = last_state
+
+            # Check if blocked
+            if result_state.get("input_blocked", False):
+                REQUEST_COUNT.labels(endpoint="/chat", status="blocked").inc()
 
             final_response = {
                 "answer": result_state.get("final_answer", ""),
@@ -122,10 +177,13 @@ async def chat_stream(
                 "reasoning_chain": result_state.get("reasoning_chain", []),
                 "hops_used": result_state.get("current_hop", 0),
                 "complexity_score": round(result_state.get("complexity_score", 0.0), 2),
+                "guardrail_violations": result_state.get("guardrail_violations", []),
+                "output_sanitized": result_state.get("output_sanitized", False),
+                "steps_completed": result_state.get("steps_completed", []),
             }
 
-            # Save in semantic cache
-            if cache and result_state.get("final_answer"):
+            # Save in semantic cache (only non-blocked, non-sanitized responses)
+            if cache and result_state.get("final_answer") and not result_state.get("input_blocked"):
                 await cache.set(chat_req.query, final_response, ttl=settings.CACHE_TTL)
 
             if lf_trace:

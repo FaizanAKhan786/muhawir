@@ -13,6 +13,8 @@
 
 Muḥāwir is an enterprise knowledge assistant specifically engineered to bridge the high-stakes gap between state-of-the-art multi-agent RAG systems and nuanced bilingual Arabic/English NLP. It delivers:
 - **Dual-Path Agentic Orchestration**: Autonomous complexity classification routing simple queries through a low-latency single-hop pipeline and multi-entity / comparative queries through a dynamic Multi-Hop ReAct loop (decompose → concurrent sub-query retrieval → cross-hop rerank → hop synthesis → final cross-evidence aggregation).
+- **Enterprise Guardrails & Safety Layer**: Multi-layer security featuring bilingual prompt injection defense (English + Arabic), automatic PII detection and redaction (phone, email, SSN/QID, addresses), toxicity heuristic filtering, output hallucination marker scanning, and structural citation enforcement.
+- **Real-Time Step Visibility**: Server-Sent Events (SSE) streaming intermediate agent steps (`🛡️ Input Guardrail` → `🌐 Language Detection` → `🧠 Complexity Routing` → `🔬 Sub-Query Decomposition` → `📚 Concurrent Retrieval` → `✍️ Synthesis` → `✅ Quality Gate`).
 - **Advanced Arabic NLP Engine**: Unicode NFKC normalization, tashkeel/diacritic stripping, tatweel removal, alef variant harmonization (أ/إ/آ/ٱ → ا), and Arabic punctuation-aware sentence segmentation.
 - **Hybrid Retrieval & RRF Fusion**: Combines lexical BM25 Okapi with dense vector embeddings (BAAI/bge-m3 in Qdrant) via Reciprocal Rank Fusion ($k=60$).
 - **Precision Reranking**: Re-scores candidates using `BAAI/bge-reranker-v2-m3` cross-encoders from top-20 to top-5.
@@ -41,14 +43,19 @@ flowchart TD
 
     subgraph Agentic Orchestration
         direction TB
-        N1[1. Detect Language\nFastText / Regex] --> N_CC{2. Classify Complexity\nThreshold >= 0.60?}
+        N_IN{0. Input Guardrails\nInjection / PII / Toxicity}
+        N_IN -- Blocked --> N_BLK[Blocked Response Refusal]
+        N_IN -- Passed / Redacted --> N1[1. Detect Language\nFastText / Regex]
+        
+        N1 --> N_CC{2. Classify Complexity\nThreshold >= 0.60?}
         
         %% Fast Path
         N_CC -- Simple (Fast Path) --> N2[3a. Expand Query\nvLLM Synonyms]
         N2 --> N3[4a. Parallel Hybrid Retrieve\nBM25 + Qdrant Dense]
         N3 --> N4[5a. Neural Reranking\nBGE-reranker-v2-m3]
         N4 --> N5[6a. Generate Answer\nvLLM Qwen-2.5-14B]
-        N5 --> N6{7a. Quality Gate Judge\nFaithfulness >= 0.80?}
+        N5 --> N_OG1[7a. Output Guardrails\nHallucination & PII Scrubbing]
+        N_OG1 --> N6{8a. Quality Gate Judge\nFaithfulness >= 0.80?}
         N6 -- Fail & Retries < 2 --> N2
         N6 -- Pass / Max Retries --> N_FMT[Format Response\nInline Citations]
 
@@ -59,11 +66,13 @@ flowchart TD
         N_MRR --> N_HS[6b. Hop Synthesis\nPartial Understandings]
         N_HS -- Needs Another Hop\ncurrent < max_hops --> N_DEC
         N_HS -- Hops Complete --> N_FS[7b. Final Synthesis\nCross-Hop Evidence Fusion]
-        N_FS --> N_QG_MH{8b. Multi-Hop Quality Gate\nFaithfulness >= 0.80?}
+        N_FS --> N_OG2[8b. Multi-Hop Output Guardrails\nStructural & Safety Validation]
+        N_OG2 --> N_QG_MH{9b. Multi-Hop Quality Gate\nFaithfulness >= 0.80?}
         N_QG_MH -- Fail & Retries < 2 --> N_DEC
         N_QG_MH -- Pass / Max Retries --> N_FMT
     end
 
+    N_BLK --> FinalAnswer
     N_FMT --> FinalAnswer[Final Output + Reasoning Chain + Citations]
     FinalAnswer --> UpdateCache[Save in Redis Semantic Cache]
     FinalAnswer --> Observability[Langfuse Spans + Prometheus]
