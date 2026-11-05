@@ -26,7 +26,18 @@ def check_regression(
             failures.append(f"Missing required metric '{metric}' (required >= {threshold})")
             continue
 
-        score = float(current_scores[metric])
+        raw_score = current_scores[metric]
+        if raw_score is None:
+            failures.append(f"Metric '{metric}' has not been evaluated")
+            continue
+        try:
+            score = float(raw_score)
+        except (TypeError, ValueError):
+            failures.append(f"Metric '{metric}' has no numeric measured value")
+            continue
+        if not __import__("math").isfinite(score):
+            failures.append(f"Metric '{metric}' has a non-finite value")
+            continue
         if score < threshold:
             failures.append(
                 f"Regression on '{metric}': score {score:.4f} < threshold {threshold:.4f} (diff: {score - threshold:+.4f})"
