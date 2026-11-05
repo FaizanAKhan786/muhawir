@@ -118,6 +118,12 @@ def test_fixture_only_evaluation_never_fabricates_retrieval_accuracy(tmp_path, m
     assert results["retrieval_source"] == "not_evaluated"
     assert results["answer_source"] == "golden_set_fixture"
     assert results["evaluator_type"] == "heuristic_proxy"
+    assert results["faithfulness"] is None
+    assert results["answer_relevancy"] is None
+    assert results["context_precision"] is None
+    assert results["context_recall"] is None
+    assert results["language_consistency"] is None
+    assert isinstance(results["proxy_diagnostics"]["overall"], dict)
     assert results["mrr_10"] is None
     assert results["ndcg_10"] is None
     assert results["recall_at_5"] is None
