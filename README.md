@@ -63,6 +63,8 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
+**Security:** Generate a strong random API key and set `API_KEY` in `.env` (for example, `python -c "import secrets; print(secrets.token_urlsafe(32))"`). There is **no usable default key**. Chat, evaluation, session history and memory routes now require the `X-API-Key` header. An API key protects this reference service, but is **not** per-user authentication or tenant isolation.
+
 Configure `.env` for your vLLM endpoint (`VLLM_BASE_URL` defaults to port 8001), Qdrant, Redis, and optional tracing credentials. Then start the dependencies and API:
 
 ```bash
@@ -82,7 +84,7 @@ ruff check .
 python scripts/run_eval.py --golden-set data/golden_sets/golden_v1.0.json
 ```
 
-Evaluation code lives in [`src/evaluation/`](src/evaluation/) and sample benchmark data in [`data/golden_sets/`](data/golden_sets/). Thresholds in configuration are **quality gates**, not measured accuracy claims. Confirm model and dataset availability before running a full evaluation.
+Evaluation code lives in [`src/evaluation/`](src/evaluation/) and sample benchmark data in [`data/golden_sets/`](data/golden_sets/). **Evaluation integrity:** The shipped golden-set script performs **fixture-based proxy diagnostics** when no real retriever and generator are supplied. It does **not** fabricate rank-1 retrieval hits: MRR/NDCG/Recall remain `not evaluated`, and quality gates fail rather than claiming production readiness. See [Evaluation Integrity](docs/EVALUATION_INTEGRITY.md). Configure a genuine retriever, model, and evaluation dataset before publishing benchmark claims.
 
 ## Repository map
 
