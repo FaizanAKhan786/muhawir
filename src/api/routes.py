@@ -53,6 +53,7 @@ def get_agent():
 async def chat_stream(
     chat_req: ChatRequest,
     request: Request,
+    api_key: str = Depends(verify_api_key),
 ) -> EventSourceResponse:
     """Stream agent status updates and final answer via Server-Sent Events (SSE)."""
     settings = get_settings()
@@ -77,7 +78,7 @@ async def chat_stream(
             lf_trace = lf_client.trace(
                 id=trace_id,
                 name="chat_request",
-                input={"query": chat_req.query, "session_id": chat_req.session_id},
+                input={"query_chars": len(chat_req.query), "session_present": bool(chat_req.session_id)},
             )
         except Exception as e:
             logger.debug("Langfuse trace creation failed: %s", e)
@@ -231,7 +232,7 @@ async def chat_stream(
             REQUEST_COUNT.labels(endpoint="/chat", status="error").inc()
             yield {
                 "event": "error",
-                "data": json.dumps({"type": "error", "message": f"Execution error: {str(exc)}"}),
+                "data": json.dumps({"type": "error", "message": "AI pipeline temporarily unavailable; review server logs."}),
             }
 
     return EventSourceResponse(event_generator())
@@ -336,7 +337,9 @@ async def metrics_endpoint() -> Response:
 
 
 @router.get("/sessions/{session_id}/history", response_model=SessionHistoryResponse)
-async def get_session_history(session_id: str) -> SessionHistoryResponse:
+async def get_session_history(
+    session_id: str, api_key: str = Depends(verify_api_key)
+) -> SessionHistoryResponse:
     """Retrieve the recent sliding window dialogue history for a session."""
     conv_mem = get_conversation_memory()
     history = await conv_mem.get_history(session_id=session_id, max_messages=50)
@@ -348,7 +351,9 @@ async def get_session_history(session_id: str) -> SessionHistoryResponse:
 
 
 @router.delete("/sessions/{session_id}")
-async def clear_session(session_id: str) -> dict[str, Any]:
+async def clear_session(
+    session_id: str, api_key: str = Depends(verify_api_key)
+) -> dict[str, Any]:
     """Clear dialogue history for a session."""
     conv_mem = get_conversation_memory()
     success = await conv_mem.clear_session(session_id)
@@ -356,7 +361,9 @@ async def clear_session(session_id: str) -> dict[str, Any]:
 
 
 @router.get("/users/{user_id}/memories", response_model=UserMemoriesResponse)
-async def get_user_memories(user_id: str, query: str = "") -> UserMemoriesResponse:
+async def get_user_memories(
+    user_id: str, query: str = "", api_key: str = Depends(verify_api_key)
+) -> UserMemoriesResponse:
     """Retrieve long-term semantic profile facts and preferences for a user."""
     lt_store = get_long_term_memory_store()
     memories = await lt_store.retrieve_user_memories(user_id=user_id, query=query, top_k=20)
@@ -368,7 +375,9 @@ async def get_user_memories(user_id: str, query: str = "") -> UserMemoriesRespon
 
 
 @router.delete("/users/{user_id}/memories")
-async def clear_user_memories(user_id: str) -> dict[str, Any]:
+async def clear_user_memories(
+    user_id: str, api_key: str = Depends(verify_api_key)
+) -> dict[str, Any]:
     """Clear long-term semantic memory for a user."""
     lt_store = get_long_term_memory_store()
     success = await lt_store.clear_user_memories(user_id)
