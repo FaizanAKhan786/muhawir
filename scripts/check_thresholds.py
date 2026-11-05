@@ -32,9 +32,10 @@ def main():
 
     print("\n--- Production Quality Gate Verification ---")
     for metric, threshold in THRESHOLDS.items():
-        val = metrics.get(metric, 0.0)
-        status = "PASSED" if val >= threshold else "FAILED"
-        print(f"[{status}] {metric}: {val:.4f} (Threshold >= {threshold:.4f})")
+        val = metrics.get(metric)
+        status = "PASSED" if isinstance(val, (int, float)) and val >= threshold else "FAILED"
+        formatted = f"{val:.4f}" if isinstance(val, (int, float)) else "not evaluated"
+        print(f"[{status}] {metric}: {formatted} (Threshold >= {threshold:.4f})")
 
     if passed:
         print("\nAll quality gates passed successfully. Ready for deployment.\n")
