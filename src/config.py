@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     LANGFUSE_PUBLIC_KEY: str = ""
     LANGFUSE_SECRET_KEY: str = ""
     MLFLOW_TRACKING_URI: str = "http://localhost:5000"
-    API_KEY: str = "changeme"
+    API_KEY: str = ""
     FASTTEXT_MODEL_PATH: str = "./models/lid.176.bin"
     EMBEDDING_MODEL: str = "BAAI/bge-m3"
     RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
