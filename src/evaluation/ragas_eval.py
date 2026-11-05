@@ -182,23 +182,31 @@ def run_ragas_evaluation(
             sub_ragas["language_consistency"] = language_consistency_score(sub_queries, sub_responses)
             subsets[target_lang] = sub_ragas
 
+    # Do not place lexical fixture-proxy scores into benchmark metric fields.
+    # This prevents accidental reporting of heuristics as real RAG accuracy.
+    has_evaluated_answers = generator is not None and evaluator_type != "heuristic_proxy"
     overall_metrics = {
-        "faithfulness": ragas_scores.get("faithfulness", 0.85),
-        "answer_relevancy": ragas_scores.get("answer_relevancy", 0.82),
-        "context_precision": ragas_scores.get("context_precision", 0.78),
-        "context_recall": ragas_scores.get("context_recall", 0.76),
+        "faithfulness": ragas_scores.get("faithfulness") if has_evaluated_answers else None,
+        "answer_relevancy": ragas_scores.get("answer_relevancy") if has_evaluated_answers else None,
+        "context_precision": ragas_scores.get("context_precision") if has_evaluated_answers else None,
+        "context_recall": ragas_scores.get("context_recall") if has_evaluated_answers else None,
         "mrr_10": mrr_10,
         "ndcg_10": ndcg_10,
         "recall_at_5": recalls[5],
         "recall_at_10": recalls[10],
         "recall_at_20": recalls[20],
-        "language_consistency": lang_consistency,
+        "language_consistency": lang_consistency if generator is not None else None,
         "total_eval_samples": len(eval_dataset),
-        "subsets": subsets,
+        "subsets": {},
+        "proxy_diagnostics": {
+            "overall": ragas_scores if evaluator_type == "heuristic_proxy" else None,
+            "by_language": subsets,
+            "fixture_language_consistency": lang_consistency if generator is None else None,
+        },
         "evaluator_type": evaluator_type,
         "answer_source": "live_generator" if generator is not None else "golden_set_fixture",
         "retrieval_source": "live_retriever" if has_real_retrieval else "not_evaluated",
-        "benchmarks_verified": bool(has_real_retrieval and generator is not None and evaluator_type != "heuristic_proxy"),
+        "benchmarks_verified": bool(has_real_retrieval and has_evaluated_answers),
     }
 
     # Log to MLflow if requested
