@@ -97,3 +97,59 @@ def test_regression_check_fails():
     assert len(failures) == 2
     assert any("faithfulness" in f for f in failures)
     assert any("mrr_10" in f for f in failures)
+
+
+def test_fixture_only_evaluation_never_fabricates_retrieval_accuracy(tmp_path, monkeypatch):
+    import json
+    from src.evaluation.ragas_eval import run_ragas_evaluation
+
+    monkeypatch.setenv("RAGAS_EVALUATOR_ENABLED", "0")
+    fixture = tmp_path / "fixture.json"
+    fixture.write_text(json.dumps([{
+        "question": "What is the test objective?",
+        "ground_truth": "Document-grounded answers.",
+        "answer": "Document-grounded answers.",
+        "contexts": ["This system aims for document-grounded answers."],
+        "expected_doc_id": "doc-a",
+        "language": "en",
+    }]), encoding="utf-8")
+
+    results = run_ragas_evaluation(str(fixture), log_to_mlflow=False)
+    assert results["retrieval_source"] == "not_evaluated"
+    assert results["answer_source"] == "golden_set_fixture"
+    assert results["evaluator_type"] == "heuristic_proxy"
+    assert results["mrr_10"] is None
+    assert results["ndcg_10"] is None
+    assert results["recall_at_5"] is None
+    assert results["benchmarks_verified"] is False
+
+    passed, failures = check_regression(results)
+    assert passed is False
+    assert any("mrr_10" in error for error in failures)
+
+
+def test_injected_retriever_uses_real_rank_positions(tmp_path, monkeypatch):
+    import json
+    from src.evaluation.ragas_eval import run_ragas_evaluation
+
+    monkeypatch.setenv("RAGAS_EVALUATOR_ENABLED", "0")
+    fixture = tmp_path / "fixture.json"
+    fixture.write_text(json.dumps([{
+        "question": "Where is doc A?",
+        "ground_truth": "In a local fixture.",
+        "contexts": ["In a local fixture."],
+        "expected_doc_id": "doc-a",
+        "language": "en",
+    }]), encoding="utf-8")
+
+    def actual_retriever(_question):
+        return ["not-relevant", "doc-a"]
+
+    result = run_ragas_evaluation(
+        str(fixture), retriever=actual_retriever, log_to_mlflow=False
+    )
+    assert result["retrieval_source"] == "live_retriever"
+    assert result["mrr_10"] == 0.5
+    assert result["ndcg_10"] > 0.6
+    assert result["recall_at_5"] == 1.0
+    assert result["benchmarks_verified"] is False
