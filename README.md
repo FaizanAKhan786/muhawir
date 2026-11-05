@@ -1,4 +1,7 @@
 <div align="center">
+  <a href="https://github.com/FaizanAKhan786/muhawir"><img src="docs/project-showcase.svg" alt="muhawir conceptual AI system architecture artwork" width="100%" /></a>
+  <br />
+
 
 # Muḥāwir | محاور
 ### Bilingual agentic knowledge assistant
