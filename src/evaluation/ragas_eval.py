@@ -141,8 +141,8 @@ def run_ragas_evaluation(
     if os.getenv("RAGAS_EVALUATOR_ENABLED", "0") == "1":
         try:
             from datasets import Dataset
-        from ragas import evaluate
-        from ragas.metrics import answer_relevancy, context_precision, context_recall, faithfulness
+            from ragas import evaluate
+            from ragas.metrics import answer_relevancy, context_precision, context_recall, faithfulness
 
             hf_dataset = Dataset.from_list(eval_dataset)
             results = evaluate(
