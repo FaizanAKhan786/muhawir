@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+import inspect
 import json
 import logging
 import time
@@ -22,7 +25,9 @@ async def verify_api_key(
 ) -> str:
     """Validate API key from X-API-Key header."""
     settings = get_settings()
-    if not key or key != settings.API_KEY:
+    if not settings.API_KEY or settings.API_KEY.lower() in {"changeme", "your-api-key-here"}:
+        raise HTTPException(status_code=503, detail="Server API key has not been securely configured")
+    if not key or not hmac.compare_digest(key, settings.API_KEY):
         raise HTTPException(
             status_code=401,
             detail="Invalid or missing API Key (X-API-Key header).",
@@ -46,7 +51,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         api_key = request.headers.get(API_KEY_NAME, "anonymous")
         now = time.time()
-        key_name = f"ratelimit:{api_key}"
+        key_name = f"ratelimit:{hashlib.sha256(api_key.encode()).hexdigest()[:16]}"
 
         is_rate_limited = False
 
@@ -59,7 +64,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     pipe.zadd(key_name, {str(now): now})
                     pipe.zcard(key_name)
                     pipe.expire(key_name, self.window_sec)
-                    res = await pipe.execute() if hasattr(pipe.execute(), "__await__") else pipe.execute()
+                    pending = pipe.execute()
+                    res = await pending if inspect.isawaitable(pending) else pending
                     current_count = res[2]
                 else:
                     current_count = 1
