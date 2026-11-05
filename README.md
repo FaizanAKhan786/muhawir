@@ -99,4 +99,8 @@ Evaluation code lives in [`src/evaluation/`](src/evaluation/) and sample benchma
 
 This repo showcases an **engineering implementation and reference architecture**. Running all paths requires appropriate inference compute, model assets, external service configuration and evaluation data. No real government data or proprietary deployment is included.
 
+## Verification & benchmark protocol
+
+[Read the reproducible test and evaluation guide](docs/QUALITY.md). It documents the current automated checks, commands for model-dependent evaluations, and what results **do not** establish.
+
 [Issues](https://github.com/FaizanAKhan786/muhawir/issues) · [GitHub profile](https://github.com/FaizanAKhan786)
