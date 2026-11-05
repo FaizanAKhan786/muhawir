@@ -3,7 +3,7 @@ import json
 import logging
 import time
 import uuid
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from sse_starlette.sse import EventSourceResponse
