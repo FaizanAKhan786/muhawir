@@ -99,25 +99,35 @@ def run_ragas_evaluation(
         item_contexts = item.get("contexts", [])
 
         queries.append(question)
-        target_doc = item.get("expected_doc_id") or f"doc_{len(ground_truth_targets)}"
-        ground_truth_targets.append(target_doc)
+        target_doc = item.get("expected_doc_id")
+        if retriever is not None and not target_doc:
+            raise ValueError("Live retrieval evaluation requires expected_doc_id for each golden query")
+        if target_doc:
+            ground_truth_targets.append(target_doc)
 
-        # If contexts are already provided in golden set, use them
-        if item_contexts:
-            simulated_contexts = item_contexts
-        else:
-            simulated_contexts = [f"Reference document context for {question}"]
+        # Fixture contexts and reference answers are explicitly diagnostic inputs.
+        # Never fabricate retrieved document IDs or a successful rank-1 result.
+        fixture_answer = item.get("answer") or ground_truth
+        if generator is not None:
+            fixture_answer = generator(question, item_contexts) if callable(generator) else generator.generate(question, item_contexts)
+        responses.append(fixture_answer)
 
-        simulated_answer = item.get("answer") or ground_truth
-        responses.append(simulated_answer)
-
-        retrieval_results.append([target_doc, f"decoy_{len(retrieval_results)}"])
+        if retriever is not None:
+            results = retriever(question) if callable(retriever) else retriever.retrieve(question)
+            if not isinstance(results, (list, tuple)):
+                raise ValueError("Retriever must return a ranked list of document IDs")
+            retrieval_results.append([
+                doc if isinstance(doc, str) else getattr(doc, "doc_id", None) or getattr(doc, "id", None)
+                for doc in results
+            ])
+            if any(not isinstance(doc_id, str) for doc_id in retrieval_results[-1]):
+                raise ValueError("Retriever results must expose string document IDs")
 
         eval_dataset.append(
             {
                 "question": question,
-                "answer": simulated_answer,
-                "contexts": simulated_contexts,
+                "answer": fixture_answer,
+                "contexts": item_contexts,
                 "ground_truth": ground_truth,
                 "language": lang,
             }
@@ -125,30 +135,40 @@ def run_ragas_evaluation(
 
     # Try running official RAGAS if environment permits
     ragas_scores = {}
-    try:
-        from datasets import Dataset
+    evaluator_type = "heuristic_proxy"
+    # The official evaluator requires separately configured model access.
+    # Do not silently trigger a remote judge using fixture-only data.
+    if os.getenv("RAGAS_EVALUATOR_ENABLED", "0") == "1":
+        try:
+            from datasets import Dataset
         from ragas import evaluate
         from ragas.metrics import answer_relevancy, context_precision, context_recall, faithfulness
 
-        hf_dataset = Dataset.from_list(eval_dataset)
-        results = evaluate(
-            dataset=hf_dataset,
-            metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
-        )
-        ragas_scores = {
-            "faithfulness": round(float(results["faithfulness"]), 4),
-            "answer_relevancy": round(float(results["answer_relevancy"]), 4),
-            "context_precision": round(float(results["context_precision"]), 4),
-            "context_recall": round(float(results["context_recall"]), 4),
-        }
-    except Exception as e:
-        logger.info("Running deterministic RAGAS proxy evaluation (%s)", e)
+            hf_dataset = Dataset.from_list(eval_dataset)
+            results = evaluate(
+                dataset=hf_dataset,
+                metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+            )
+            ragas_scores = {
+                "faithfulness": round(float(results["faithfulness"]), 4),
+                "answer_relevancy": round(float(results["answer_relevancy"]), 4),
+                "context_precision": round(float(results["context_precision"]), 4),
+                "context_recall": round(float(results["context_recall"]), 4),
+            }
+            evaluator_type = "ragas_evaluator_on_supplied_answers"
+        except Exception as e:
+            logger.warning("RAGAS evaluation unavailable; retaining labeled proxy metrics: %s", e)
+    if not ragas_scores:
         ragas_scores = _compute_fallback_ragas_metrics(eval_dataset)
 
     # Retrieval and Language metrics
-    mrr_10 = compute_mrr(retrieval_results, ground_truth_targets, k=10)
-    ndcg_10 = compute_ndcg(retrieval_results, ground_truth_targets, k=10)
-    recalls = compute_recall_at_k(retrieval_results, ground_truth_targets, k_values=[5, 10, 20])
+    has_real_retrieval = retriever is not None and bool(retrieval_results)
+    mrr_10 = compute_mrr(retrieval_results, ground_truth_targets, k=10) if has_real_retrieval else None
+    ndcg_10 = compute_ndcg(retrieval_results, ground_truth_targets, k=10) if has_real_retrieval else None
+    recalls = (
+        compute_recall_at_k(retrieval_results, ground_truth_targets, k_values=[5, 10, 20])
+        if has_real_retrieval else {5: None, 10: None, 20: None}
+    )
     lang_consistency = language_consistency_score(queries, responses)
 
     # Subsets
@@ -175,6 +195,10 @@ def run_ragas_evaluation(
         "language_consistency": lang_consistency,
         "total_eval_samples": len(eval_dataset),
         "subsets": subsets,
+        "evaluator_type": evaluator_type,
+        "answer_source": "live_generator" if generator is not None else "golden_set_fixture",
+        "retrieval_source": "live_retriever" if has_real_retrieval else "not_evaluated",
+        "benchmarks_verified": bool(has_real_retrieval and generator is not None and evaluator_type != "heuristic_proxy"),
     }
 
     # Log to MLflow if requested
