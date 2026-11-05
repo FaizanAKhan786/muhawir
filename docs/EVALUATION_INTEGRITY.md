@@ -11,7 +11,7 @@ Muḥāwir provides metric implementations, evaluation fixtures and automated te
 | Real retriever wired into evaluator | Ranked document IDs actually produced for questions, with known relevance labels | Retrieval MRR, NDCG and Recall@K for that specific corpus and configuration |
 | Real generator + authorized evaluator | Actual generated answers, retrieved contexts and judge model | Potentially meaningful answer quality metrics, subject to assessor limitations |
 
-The code now **never inserts expected document IDs into a fabricated rank-1 results list**. If `retriever=None`, retrieval metrics are `None`, `retrieval_source="not_evaluated"`, and regression checks fail rather than claiming success. The `benchmarks_verified` flag also remains false unless a real retriever, a real generator and non-proxy answer evaluation are supplied.
+The code now **never inserts expected document IDs into a fabricated rank-1 results list**. If `retriever=None`, retrieval metrics are `None`, `retrieval_source="not_evaluated"`, and regression checks fail rather than claiming success. Likewise, heuristic fixture-only answer estimates are stored under `proxy_diagnostics` and the public `faithfulness`, `answer_relevancy`, `context_precision`, and `context_recall` benchmark fields are `None` until real generation and non-proxy evaluation are provided. The `benchmarks_verified` flag also remains false unless a real retriever, a real generator and non-proxy answer evaluation are supplied.
 
 ## Running local diagnostic tests
 
