@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="472" viewBox="0 0 1200 472" role="img" aria-labelledby="title desc">
+<title id="title">MUḤĀWIR | AI system blueprint</title>
+<desc id="desc">Illustrated conceptual architecture of Arabic / English knowledge agents. Not an application screenshot.</desc>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0B1020"/><stop offset=".5" stop-color="#111A31"/><stop offset="1" stop-color="#141026"/></linearGradient>
+<linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#57DCF5"/><stop offset="1" stop-color="#9484FF"/></linearGradient>
+<pattern id="g" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#6481AE" stroke-opacity=".09" stroke-width=".8"/></pattern>
+<filter id="blur"><feGaussianBlur stdDeviation="22"/></filter>
+</defs>
+<rect x="1" y="1" width="1198" height="470" rx="21" fill="url(#bg)" stroke="#40516E" stroke-width="2"/>
+<rect x="2" y="2" width="1196" height="468" rx="20" fill="url(#g)"/>
+<ellipse cx="500" cy="90" rx="140" ry="125" fill="#57DCF5" opacity=".10" filter="url(#blur)"/>
+<ellipse cx="1010" cy="400" rx="190" ry="120" fill="#9484FF" opacity=".13" filter="url(#blur)"/>
+<rect x="51" y="46" width="52" height="52" rx="13" fill="#1B2645" stroke="#57DCF5" stroke-opacity=".8"/>
+<text x="77" y="79" fill="#57DCF5" font-size="20" font-weight="bold" font-family="monospace" text-anchor="middle">MH</text>
+<text x="121" y="65" fill="#9AB6D7" font-size="13" font-family="monospace" letter-spacing="2.4">PROJECT / AGENTIC INTELLIGENCE</text>
+<text x="121" y="88" fill="#57DCF5" font-size="13" font-family="monospace" letter-spacing="1.2">ENGINEERING SHOWCASE</text>
+<text x="52" y="186" fill="#F2F8FF" font-size="62" font-weight="800" font-family="Arial, Helvetica, sans-serif" letter-spacing="-1.4">MUḤĀWIR</text>
+<rect x="52" y="206" width="104" height="4" fill="url(#accent)" rx="2"/>
+<text x="52" y="255" fill="#A9C5DE" font-size="23" font-family="Arial, Helvetica, sans-serif">Arabic / English knowledge agents</text>
+<text x="52" y="312" fill="#789AB9" font-size="15" letter-spacing="1.4" font-family="monospace">DESIGN   /   BUILD   /   EVALUATE</text>
+<rect x="52" y="357" width="176" height="37" rx="10" fill="#57DCF5" fill-opacity=".09" stroke="#57DCF5" stroke-opacity=".35"/><text x="64" y="381" font-family="monospace" font-size="13" font-weight="700" fill="#B7D7EB">LANGGRAPH</text><rect x="238" y="357" width="160" height="37" rx="10" fill="#57DCF5" fill-opacity=".09" stroke="#57DCF5" stroke-opacity=".35"/><text x="250" y="381" font-family="monospace" font-size="13" font-weight="700" fill="#B7D7EB">HYBRID RAG</text><rect x="408" y="357" width="176" height="37" rx="10" fill="#57DCF5" fill-opacity=".09" stroke="#57DCF5" stroke-opacity=".35"/><text x="420" y="381" font-family="monospace" font-size="13" font-weight="700" fill="#B7D7EB">EVALUATION</text>
+<text x="54" y="440" fill="#6783A5" font-size="13" font-family="monospace">FAIZAN AHMED KHAN · GITHUB PROJECT</text>
+<path d="M875 161H902" fill="none" stroke="#57DCF5" stroke-width="3" stroke-linecap="round"/>
+<path d="M896 154L904 161L896 168" fill="none" stroke="#57DCF5" stroke-width="3"/>
+<path d="M1018 212V251H762V266" fill="none" stroke="#9484FF" stroke-opacity=".82" stroke-width="3"/>
+<path d="M756 258L762 267L769 258" fill="none" stroke="#9484FF" stroke-width="3"/>
+<path d="M875 317H902" fill="none" stroke="#57DCF5" stroke-width="3"/>
+<path d="M896 310L904 317L896 324" fill="none" stroke="#57DCF5" stroke-width="3"/>
+<rect x="624" y="70" width="563" height="340" rx="22" fill="none" stroke="#344867" stroke-opacity=".42" stroke-dasharray="7 8"/>
+<g><rect x="650" y="110" width="225" height="102" rx="16" fill="#151F35" stroke="#50617F" stroke-opacity=".8" stroke-width="1.5"/><rect x="665" y="128" width="27" height="27" rx="7" fill="#57DCF5" fill-opacity=".13" stroke="#57DCF5" stroke-opacity=".7"/><text x="678.5" y="147" fill="#57DCF5" font-size="14" font-family="monospace" text-anchor="middle">1</text><text x="666" y="183" fill="#E4F3FF" font-size="14" font-family="Arial, Helvetica, sans-serif" font-weight="bold">QUERY + CONTEXT</text></g><g><rect x="905" y="110" width="225" height="102" rx="16" fill="#151F35" stroke="#50617F" stroke-opacity=".8" stroke-width="1.5"/><rect x="920" y="128" width="27" height="27" rx="7" fill="#57DCF5" fill-opacity=".13" stroke="#57DCF5" stroke-opacity=".7"/><text x="933.5" y="147" fill="#57DCF5" font-size="14" font-family="monospace" text-anchor="middle">2</text><text x="921" y="183" fill="#E4F3FF" font-size="14" font-family="Arial, Helvetica, sans-serif" font-weight="bold">AGENT ROUTER</text></g><g><rect x="650" y="266" width="225" height="102" rx="16" fill="#151F35" stroke="#50617F" stroke-opacity=".8" stroke-width="1.5"/><rect x="665" y="284" width="27" height="27" rx="7" fill="#57DCF5" fill-opacity=".13" stroke="#57DCF5" stroke-opacity=".7"/><text x="678.5" y="303" fill="#57DCF5" font-size="14" font-family="monospace" text-anchor="middle">3</text><text x="666" y="339" fill="#E4F3FF" font-size="14" font-family="Arial, Helvetica, sans-serif" font-weight="bold">RRF + RERANK</text></g><g><rect x="905" y="266" width="225" height="102" rx="16" fill="#151F35" stroke="#9484FF" stroke-opacity=".8" stroke-width="1.5"/><rect x="920" y="284" width="27" height="27" rx="7" fill="#57DCF5" fill-opacity=".13" stroke="#57DCF5" stroke-opacity=".7"/><text x="933.5" y="303" fill="#57DCF5" font-size="14" font-family="monospace" text-anchor="middle">4</text><text x="921" y="339" fill="#E4F3FF" font-size="14" font-family="Arial, Helvetica, sans-serif" font-weight="bold">GROUNDED ANSWER</text></g>
+<text x="931" y="432" font-size="11" fill="#7890A8" font-family="monospace" text-anchor="middle">CONCEPTUAL ARCHITECTURE · NOT A PRODUCT SCREENSHOT</text>
+</svg>
