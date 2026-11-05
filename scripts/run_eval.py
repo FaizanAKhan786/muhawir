@@ -50,15 +50,16 @@ def print_summary_table(metrics: dict, passed: bool, failures: list[str]) -> Non
     print("-" * 75)
 
     for metric, threshold in THRESHOLDS.items():
-        score = metrics.get(metric, 0.0)
-        status = "PASS" if score >= threshold else "FAIL"
-        print(f"{metric:<30} | {score:<15.4f} | {threshold:<12.4f} | {status:<8}")
+        score = metrics.get(metric)
+        status = "PASS" if isinstance(score, (int, float)) and score >= threshold else "N/A"
+        score_label = f"{score:.4f}" if isinstance(score, (int, float)) else "not evaluated"
+        print(f"{metric:<30} | {score_label:<15} | {threshold:<12.4f} | {status:<8}")
 
     print("-" * 75)
-    print(f"{'NDCG@10':<30} | {metrics.get('ndcg_10', 0.0):<15.4f} | {'N/A':<12} | INFO")
-    print(f"{'Recall@5':<30} | {metrics.get('recall_at_5', 0.0):<15.4f} | {'N/A':<12} | INFO")
-    print(f"{'Recall@10':<30} | {metrics.get('recall_at_10', 0.0):<15.4f} | {'N/A':<12} | INFO")
-    print(f"{'Recall@20':<30} | {metrics.get('recall_at_20', 0.0):<15.4f} | {'N/A':<12} | INFO")
+    for label, key in [("NDCG@10", "ndcg_10"), ("Recall@5", "recall_at_5"), ("Recall@10", "recall_at_10"), ("Recall@20", "recall_at_20")]:
+        value = metrics.get(key)
+        formatted = f"{value:.4f}" if isinstance(value, (float, int)) else "not evaluated"
+        print(f"{label:<30} | {formatted:<15} | {'N/A':<12} | INFO")
     print(f"{'Total Test Samples':<30} | {metrics.get('total_eval_samples', 0):<15} | {'N/A':<12} | INFO")
     print("=" * 75)
 
