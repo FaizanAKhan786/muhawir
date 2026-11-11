@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from sse_starlette.sse import EventSourceResponse
 
+from src import get_version_info
 from src.agents.graph import compile_graph, get_langfuse_client
 from src.agents.state import AgentState
 from src.api.middleware import verify_api_key
@@ -47,6 +48,12 @@ def get_agent():
     if _COMPILED_AGENT is None:
         _COMPILED_AGENT = compile_graph()
     return _COMPILED_AGENT
+
+
+@router.get("/version")
+async def version_metadata():
+    """Return application version, capabilities, and supported languages."""
+    return get_version_info()
 
 
 @router.post("/chat")

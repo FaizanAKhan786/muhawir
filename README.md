@@ -2,12 +2,12 @@
   <a href="https://github.com/FaizanAKhan786/muhawir"><img src="docs/project-showcase.svg" alt="muhawir conceptual AI system architecture artwork" width="100%" /></a>
   <br />
 
-
 # Muḥāwir | محاور
 ### Bilingual agentic knowledge assistant
 
 **Arabic + English · LangGraph · Hybrid RAG · Evaluations · Guardrails**
 
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](pyproject.toml)
 [![CI](https://github.com/FaizanAKhan786/muhawir/actions/workflows/ci.yml/badge.svg)](https://github.com/FaizanAKhan786/muhawir/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![Focus](https://img.shields.io/badge/Focus-Agentic%20RAG-6D5DF5)

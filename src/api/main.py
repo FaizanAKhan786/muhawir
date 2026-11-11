@@ -108,7 +108,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Muḥāwir (محاور) API",
         description="Production-grade Bilingual (Arabic/English) Agentic Knowledge Assistant",
-        version="0.1.0",
+        version="1.2.0",
         lifespan=lifespan,
     )
 

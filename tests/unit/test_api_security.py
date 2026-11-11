@@ -1,5 +1,7 @@
 """HTTP access-control regression checks without starting model infrastructure."""
 import pytest
+
+pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 from src.api.main import create_app
