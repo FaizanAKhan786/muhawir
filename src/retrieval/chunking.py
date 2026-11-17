@@ -24,10 +24,24 @@ def simple_hash_vector(text: str, dim: int = 128) -> list[float]:
     return vec.tolist()
 
 
-def normalize_arabic(text: str) -> str:
-    """Normalize Arabic text by standardizing alef variants, removing tashkeel and tatweel."""
+EASTERN_ARABIC_DIGITS_TABLE = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+
+
+def normalize_arabic_digits(text: str) -> str:
+    """Convert Eastern Arabic (٠-٩) and Persian (۰-۹) numerals to standard ASCII digits (0-9)."""
     if not text:
         return ""
+    return text.translate(EASTERN_ARABIC_DIGITS_TABLE)
+
+
+def normalize_arabic(text: str, convert_digits: bool = True) -> str:
+    """Normalize Arabic text by standardizing alef variants, removing tashkeel and tatweel, and normalizing digits."""
+    if not text:
+        return ""
+
+    # Convert Eastern Arabic numerals to standard ASCII digits
+    if convert_digits:
+        text = normalize_arabic_digits(text)
 
     # Unicode NFKC normalization
     text = unicodedata.normalize("NFKC", text)

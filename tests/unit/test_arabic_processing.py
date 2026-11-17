@@ -1,4 +1,4 @@
-from src.retrieval.chunking import chunk_documents, normalize_arabic
+from src.retrieval.chunking import chunk_documents, normalize_arabic, normalize_arabic_digits
 
 
 def test_alef_normalization():
@@ -30,6 +30,24 @@ def test_tatweel_removal():
     normalized = normalize_arabic(raw)
     assert "ـ" not in normalized
     assert normalized == "محاور للذكاء الاصطناعي"
+
+
+def test_eastern_arabic_digit_normalization():
+    # Test Eastern Arabic numerals (٠-٩) mapped to ASCII standard digits
+    eastern_ar = "رؤية المملكة ٢٠٣٠ ومشروع رقم ٩٨٧٦٥٤٣٢١٠"
+    normalized = normalize_arabic(eastern_ar)
+    assert "2030" in normalized
+    assert "9876543210" in normalized
+    assert "٢" not in normalized
+    assert "٠" not in normalized
+
+
+def test_standalone_arabic_digits_normalizer():
+    raw_digits = "١٢٣٤٥٦٧٨٩٠"
+    assert normalize_arabic_digits(raw_digits) == "1234567890"
+    persian_digits = "۰۱۲۳۴۵۶۷۸۹"
+    assert normalize_arabic_digits(persian_digits) == "0123456789"
+    assert normalize_arabic_digits("") == ""
 
 
 def test_mixed_ar_en_chunking():

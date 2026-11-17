@@ -25,7 +25,7 @@ Muḥāwir is an **Arabic/English agentic knowledge assistant** built around ret
 | Agent workflows | LangGraph, simple and multi-hop query paths |
 | Knowledge retrieval | BM25 + Qdrant vector search with reciprocal-rank fusion |
 | Answer quality | Neural reranking, citations, evaluation and retry logic |
-| Multilingual processing | Arabic normalization, bilingual language handling |
+| Multilingual processing | Arabic normalization (diacritics, alef, tatweel, numerals), bilingual language handling |
 | Memory and caching | Redis-backed session utilities and semantic cache |
 | Serving and visibility | FastAPI, server-sent events, metrics and tracing integration |
 
