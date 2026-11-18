@@ -69,6 +69,18 @@ def test_phone_number_redacted():
     assert result.metadata.get("pii_redacted") is True
 
 
+def test_gcc_phone_and_emirates_id_redacted():
+    # UAE phone
+    uae_res = redact_pii("Contact our Dubai office at +971501234567 directly.")
+    assert "[PHONE]" in uae_res.modified_text
+    assert "+971501234567" not in uae_res.modified_text
+
+    # Emirates ID
+    eid_res = redact_pii("Citizen Emirates ID: 784-1985-1234567-1 on record.")
+    assert "[ID_NUMBER]" in eid_res.modified_text
+    assert "784-1985-1234567-1" not in eid_res.modified_text
+
+
 def test_credit_card_redacted():
     result = redact_pii("My card number is 4111111111111111.")
     assert "[CREDIT_CARD]" in result.modified_text

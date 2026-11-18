@@ -102,6 +102,11 @@ _PII_PATTERNS: list[tuple[str, str, str]] = [
         "EMAIL",
     ),
     (
+        r"\b784[-\s]?\d{4}[-\s]?\d{7}[-\s]?\d\b",
+        "[ID_NUMBER]",
+        "EMIRATES_ID",
+    ),
+    (
         r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
         "[PHONE]",
         "PHONE_US",
@@ -115,6 +120,16 @@ _PII_PATTERNS: list[tuple[str, str, str]] = [
         r"\b(?:\+?974|[3-7])\d{7}\b",
         "[PHONE]",
         "PHONE_QA",
+    ),
+    (
+        r"(?:(?<=\s)|^)[\+]?9715\d{8}\b",
+        "[PHONE]",
+        "PHONE_AE",
+    ),
+    (
+        r"(?:(?<=\s)|^)[\+]?965[569]\d{7}\b",
+        "[PHONE]",
+        "PHONE_KW",
     ),
     (
         r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b",
